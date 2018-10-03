@@ -37,6 +37,7 @@ Q_OBJECT
 public:
 	SpecificWorker(MapPrx& mprx);
 	~SpecificWorker();
+	int speed;
 	bool setParams(RoboCompCommonBehavior::ParameterList params);
 
 

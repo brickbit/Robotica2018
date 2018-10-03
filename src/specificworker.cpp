@@ -57,7 +57,7 @@ bool SpecificWorker::setParams(RoboCompCommonBehavior::ParameterList params)
 
 void SpecificWorker::compute( )
 {
-    const float threshold = 400; //millimeters
+    const float threshold = 200; //millimeters
     float rot = 1.5708;  //rads per second 90 grados
 
     try
@@ -65,45 +65,42 @@ void SpecificWorker::compute( )
         RoboCompLaser::TLaserData ldata = laser_proxy->getLaserData();  //read laser data 
         std::sort( ldata.begin(), ldata.end(), [](RoboCompLaser::TData a, RoboCompLaser::TData b){ return     a.dist < b.dist; }) ;  //sort laser data from small to large distances using a lambda function.
         
-        float angle = atan2(210,threshold); //calculate the angle 
-        RoboCompLaser::TLaserData ldataLeft;
-        RoboCompLaser::TLaserData ldataRight;
-        std::cout << "Contenido del sequence" << std::endl;
-        //for(ldata it=ldata.begin(); it != ldata.end(); ++it)
-        //    std::cout << "hola" << std::endl;
-        
-        std::cout << angle <<std::endl;
-        unsigned int sizeldata = ldata.size();
-        for (unsigned int i = 0; i<sizeldata; i++){
-            RoboCompLaser::TData item = ldata.back();
-            ldata.pop_back();
-            if (item.angle <angle && item.angle > 0)
-                ldataLeft.push_back(item);
-            if (item.angle >(angle*(-1)) && item.angle < 0)
-                ldataRight.push_back(item);
+        float angle = atan2(400,threshold); //calculate the angle 
+
+
+    if( ldata.front().dist < threshold )    
+    {
+        std::cout << "*********"<<std::endl;
+        if( (ldata.front().angle>angle*(-1) && ldata.front().angle<0) )
+        {
+            std::cout << "TURN LEFT because my distance is : "<<ldata.back().dist<<" and my threshold "<<threshold << std::endl;
+            differentialrobot_proxy->setSpeedBase(5, rot);//gira a menos velocidad
+            usleep(1500000);  //random wait between 1.5s and 0.1sec
         }
-        ldata = laser_proxy->getLaserData();
-        std::cout << "Fin contenido sequence" << std::endl;
+ 
+        else 
+        {
+            std::cout << "TURN RIGHT because my distance is : "<<ldata.back().dist<<" and my threshold "<<threshold << std::endl;
+            differentialrobot_proxy->setSpeedBase(5, rot*(-1));//gira a menos velocidad
+            usleep(rand()%(1500000-100000 + 1) + 100000);  //random wait between 1.5s and 0.1sec
+        }
+    }
+    else 
+    {
+        //Se mueve recto0
+        std::cout << "Me muevo recto "<<ldata.back().dist<<"con velocidad "<<speed<<std::endl;
+        if (ldata.back().dist>3000){
+        speed = ((ldata.back().dist - 3000)/10 )* 3 + 200;
+        differentialrobot_proxy->setSpeedBase(speed, 0); 
+        }
+        else {
+            differentialrobot_proxy->setSpeedBase(200, 0); 
+
+        }
 
         
-	if( ldataLeft.front().dist < threshold)
-	{
-		std::cout << "TURN LEFT because my distance is : "<<ldata.front().dist<<" and my threshold "<<threshold << std::endl;
- 		differentialrobot_proxy->setSpeedBase(5, rot);//gira a menos velocidad
-		usleep(rand()%(1500000-100000 + 1) + 100000);  //random wait between 1.5s and 0.1sec
-	}
-	else if (ldataRight.front().dist < threshold) 
-    {
-        std::cout << "TURN RIGHT because my distance is : "<<ldata.front().dist<<" and my threshold "<<threshold << std::endl;
- 		differentialrobot_proxy->setSpeedBase(5, rot*(-1));//gira a menos velocidad
-		usleep(rand()%(1500000-100000 + 1) + 100000);  //random wait between 1.5s and 0.1sec
+    
     }
-    else
-	{
-        //Se mueve recto
-        std::cout << "Me muevo recto"<<std::endl;
-		differentialrobot_proxy->setSpeedBase(200, 0); 
-  	}
     }
     catch(const Ice::Exception &ex)
     {
