@@ -38,7 +38,11 @@ public:
 	SpecificWorker(MapPrx& mprx);
 	~SpecificWorker();
 	int speed;
+	float rot;
 	bool setParams(RoboCompCommonBehavior::ParameterList params);
+
+
+
 
 
 public slots:
