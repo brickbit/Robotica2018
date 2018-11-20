@@ -1,5 +1,5 @@
 /*
- *    Copyright (C)2018 by Roberto García Romero África Malpartida Chaparro
+ *    Copyright (C)2018 by YOUR NAME HERE
  *
  *    This file is part of RoboComp
  *
@@ -30,6 +30,7 @@
 #include <genericworker.h>
 #include <innermodel/innermodel.h>
 #include <cmath>
+
 //#include <~/robocomp/libs/qmat/include/qmat/qvec.h>
 
 
@@ -44,28 +45,24 @@ public:
 	void setPick(const Pick &myPick);
 	float f1(float d);
 	float f2(float r,float h, float Vx);
+    void letsmove(const TLaserData &ldata, const TBaseState& bState);
+    void startbug(const TLaserData &ldata, const TBaseState& bState);
+    void bug(const TLaserData &ldata, const TBaseState& bState);
+    void endbug(const TBaseState& bState);
+    bool inTarget();
+    float distanceToTarget(const TBaseState& bState);
 
-	void gotoTarget(const TLaserData &ldata);
-	void bug(const TLaserData &ldata, const TBaseState& bState);
-	QLine2D linea; 
-	bool obstacle(TLaserData ldata);
-	bool targetAtSight(TLaserData ldata);
-	float obstacleLeft( const TLaserData &tLaser);
-	float distanceToLine(const TBaseState &bState);
+
 
 public slots:
 	void compute();
 
 private:
-
-	
-	enum class State {IDLE,GOTO,BUG};
-	State state = State::IDLE;
-
 	struct Target
 	{
 		mutable QMutex m;
 		QVec coord = QVec::zeros(3);
+		//float angl;
 		bool newCoord = false;
 	void setActive(bool newActive)
 	{
@@ -91,13 +88,20 @@ private:
 		return (newCoord);
 	}
 	};
-
+	enum class StateRobot
+	{
+        GOTO,BUG,STARTBUG,ENDBUG
+    };
+    StateRobot state;
+    QVec startPoint;
+    QLine2D path;
+	bool initialized = false;
+    float threshold = 220;
+    float initialDistance;
+    float module;
 	std::shared_ptr<InnerModel> innerModel;
 	int speed = 200;
-	float rot = 0.507;
-	float distanciaAnterior;
 	Target target;
-	
 
 
 };

@@ -1,5 +1,6 @@
 /*
  *    Copyright (C)2018 Roberto García Romero África Malpartida Chaparro
+
  *
  *    This file is part of RoboComp
  *
@@ -75,173 +76,178 @@ float SpecificWorker::f2(float r,float h, float Vx)
 
 void SpecificWorker::compute()
 {
-	try
-	{	
+	
+	
+    
+    try
+    {
+        RoboCompLaser::TLaserData ldata = laser_proxy->getLaserData();  //read laser data 
+
 		RoboCompGenericBase::TBaseState bState;
 		differentialrobot_proxy->getBaseState(bState);
-		RoboCompLaser::TLaserData ldata = laser_proxy->getLaserData();
-		innerModel->updateTransformValues("base", bState.x, 0, bState.z ,0, bState.alpha, 0);
-
-		switch( state )
-		{
-
-			case State::IDLE:
-				if ( target.isNewCoord() )
-					state = State::GOTO;
-				break;
-
-			case State::GOTO:
-				cout <<"estado go to" <<endl;
-				gotoTarget(ldata);
-				break;
-
-			case State::BUG:
-				cout <<"estado bug" <<endl;
-				bug(ldata, bState);
-				
-				break;
-
-		}
-	}
-	catch( const Ice::Exception &ex)
-	{
-		std::cout << ex << std::endl;
-	}	
+		innerModel->updateTransformValues("base", bState.x, 0, bState.z, 0, bState.alpha, 0);
+        std::sort( ldata.begin(), ldata.end(), [](RoboCompLaser::TData a, RoboCompLaser::TData b){ return     a.dist < b.dist; });  //sort laser data from small to large distances using a lambda function.
+        if ( target.isNewCoord() && initialized==false) 
+        {
+            startPoint = QVec::vec3(bState.x, 0, bState.z);
+            path = QLine2D( startPoint, target.getCoord() );
+            state=StateRobot::GOTO;
+            initialized=true;
+        }
+        
+        switch( state )
+        {
+            case StateRobot::GOTO:
+                letsmove(ldata, bState);
+                break;
+            case StateRobot::STARTBUG:
+                startbug(ldata, bState);
+                break;
+            case StateRobot::BUG:
+                bug(ldata, bState);
+                break;
+            case StateRobot::ENDBUG:
+                endbug(bState);
+                break;
+        }
+		/*
+			*/
+		
+    
+    }
+    catch(const Ice::Exception &ex)
+    {
+        std::cout << ex << std::endl;
+    }
 	
 }
 
 void SpecificWorker::setPick(const Pick &myPick)
 {
-	std::cout << "hola caracola" << std::endl;
 	qDebug() << "PRESSED ON: X: " << myPick.x << " Z: " << myPick.z;
 	target.setCoord(myPick.x,myPick.z);
-	
+
 	
 }
-
-void SpecificWorker::gotoTarget(const TLaserData &ldata)
+void SpecificWorker::letsmove( const TLaserData &ldata, const TBaseState& bState )
 {
-	 if( obstacle(ldata) == true)   // If ther is an obstacle ahead, then transit to BUG
-	 {
-		 state = State::BUG;
-		return;
+    float angle;
+    if(target.isNewCoord())
+    {
+        //para ver si hay obstaculo
+        if( ldata.front().dist < threshold )    
+        {
+            std::cout<<"sale hacia STARTBUG"<<std::endl;
+            state = StateRobot::STARTBUG;
+            return;
+        }
+        auto tw = target.getCoord();
+        Rot2D rot(bState.alpha);
+        auto y = QVec::vec2(tw[0], tw[2]);
+        auto T = QVec::vec2(bState.x, bState.z);
+        auto r = rot.invert()*(y-T);
 
-	 }
-	 
-	 auto rt = innerModel->transform("base", QVec::vec3(target.getCoord()[0], 0, target.getCoord()[2]) , "world");
-     const float MAXADV = 800;
-	 float dist = rt.norm2();
-     float ang  = atan2(rt.x(), rt.z());
+        angle = atan2(r.x(),r.y());
+        module = r.norm2();
+        //para parar
+        if(inTarget()==true) return;
 
-   	 if(dist < 100)          // If close to obstacle stop and transit to IDLE
-	 {
-		 state = State::IDLE;
-	     target.setActive(false);//
-		 differentialrobot_proxy->setSpeedBase(0,0);
-		 return;
-	 }
-
-		 float adv = dist;
-
-		 if ( fabs( ang) > 0.05 )
-		 	 adv = 0;
-		 
-		 try{
-	     	differentialrobot_proxy->setSpeedBase( MAXADV * f1(adv)*f2(ang,0.9,0.1),ang);
-		 }catch ( const Ice::Exception &ex ) { std::cout << ex << std::endl; }
-
-
+        
+        differentialrobot_proxy->setSpeedBase( 400 * f1(module)*f2(angle,0.9,0.1),angle);
+    }
+    std::cout<<" ESTADO GOTO "<<std::endl;
 }
+void SpecificWorker::startbug(const TLaserData &ldata, const TBaseState& bState)
+{
+        QVec initialPosition = QVec::vec3(bState.x, 0., bState.z);
+        initialDistance = fabs(path.perpendicularDistanceToPoint(initialPosition));
+        if(ldata.front().dist > threshold )    
+        {
+            state = StateRobot::BUG;
+            differentialrobot_proxy->setSpeedBase(0, 0);
+            return;
+        }
+        differentialrobot_proxy->setSpeedBase(0, 0.5);
 
+    std::cout<<" ESTADO STARTBUG "<<std::endl;
+}
 void SpecificWorker::bug(const TLaserData &ldata, const TBaseState& bState)
 {
-/*	if(targetAtSight(ldata)){
-		state = State::GOTO;
-		return;
-	}	
-	if(obstacle() == true){
-		try{
-			differentialrobot_proxy->setSpeedBase(0,0.3);
-		}catch ( const Ice::Exception &ex ) {  std::cout << ex << std::endl; }	
-
-	}else{
-		differentialrobot_proxy->setSpeedBase(200,0);
-		
+    std::cout<<" ESTADO BUG "<<std::endl;
+    const float alpha = log ( 0.1 ) /log ( 0.3 );
+    //Calcular la distancia al objetivo
+	const int laserpos = 85;
+	float min = ldata[laserpos].dist;
+	for(int i=laserpos-2; i<laserpos+2;i++)
+	{
+		if (ldata[i].dist < min)
+			min = ldata[i].dist;
 	}
-*/	
-	if(obstacle(ldata) == false)
-	{	
-		const float alpha = log ( 0.1 ) /log ( 0.3 ); //amortigua /corte
-    	//float distanciaObstaculo = obstacleLeft(ldata);
-		float diffToline = distanceToLine(bState);
-		
-		if(targetAtSight(ldata))
-		{
-			state = State::GOTO;
-			return;
-		}
-		
-		if (distanciaAnterior < 100 and diffToline < 0)
-		{
-      		state = State::GOTO;
-     		//qDebug() << "Cruzando la linea : de BUG a GOTO";
-      		return;
-		}
-		
-		differentialrobot_proxy->setSpeedBase(200,0);
-	}else{
+    float dist =min;
+    float distToLine = distanceToTarget(bState);
     
-	      try{
-				differentialrobot_proxy->setSpeedBase(0, 0.3);
-      	  }catch ( const Ice::Exception &ex ) {  std::cout << ex << std::endl; }
-	}	
-}	
-	
-	  
-
-
-
-bool SpecificWorker::obstacle(TLaserData ldata)
+    if(inTarget()==true) return;
+    
+    //para ver si hay obstaculo
+    if( ldata.front().dist < threshold )    
+    {
+        std::cout<<"sale hacia STARTBUG"<<std::endl;
+        state = StateRobot::STARTBUG;
+        return;
+    }
+    
+    	if (initialDistance < 100 and distToLine < 0)
+	{
+		state = StateRobot::GOTO;
+		qDebug() << "Crossing the line: from BUG to GOTO";
+		return;
+	}
+    float k=0.1;  // pendiente de la sigmoide
+	float angle =  -((1./(1. + exp(-k*(dist - 450.))))-1./2.);		
+	float v = 350 * exp ( - ( fabs ( angle ) * alpha ) ); 		
+	qDebug() << angle << v;
+¡	differentialrobot_proxy->setSpeedBase ( v ,angle );
+    
+}
+void SpecificWorker::endbug(const TBaseState& bState)
 {
-		const float threshold = 250;
-		std::sort( ldata.begin(), ldata.end(), [](RoboCompLaser::TData a, RoboCompLaser::TData b){ return     a.dist < b.dist; }) ;  //sort laser data from small to large distances using a lambda function.
-    	return (ldata.front().dist < threshold);
-		
-
+    if ( target.isNewCoord()) 
+    {
+        startPoint = QVec::vec3(bState.x, 0, bState.z);
+        path = QLine2D( startPoint, target.getCoord() );
+        state=StateRobot::GOTO;
+    }
+    std::cout<<" ESTADO ENDBUG "<<std::endl;
+    //letsmove(ldata);
 }
-
-bool SpecificWorker::targetAtSight(TLaserData ldata)
+bool SpecificWorker::inTarget()
 {
-		QPolygonF polygon;
-		for (auto l: ldata)
-		{
-   			auto lr = innerModel->laserTo("world", "laser", l.dist, l.angle);
-   			polygon << QPointF(lr.x(), lr.z());
-		}
-		auto t = target.getCoord();
-		return  polygon.containsPoint(QPointF(target.coord[0], target.coord[2]), Qt::WindingFill);
+    if(module < 50)
+    {
+        if(target.isNewCoord()) target.setActive(false);
+        differentialrobot_proxy->setSpeedBase(0, 0); 
+        std::cout<<"ESTOY EN EL TARGET "<<std::endl;
+        initialized=true;
+        return true;					
+    }	
+    return false;
 }
-
-float SpecificWorker::obstacleLeft(const TLaserData &tLaser){
-	
-		const int laserpos = 85;
-  		float min = tLaser[laserpos].dist;
-  		for(int i=laserpos-2; i<laserpos+2;i++)
-    	{
-      		if (tLaser[i].dist < min)
-			min = tLaser[i].dist;
-    	}
-    	return min;
+float SpecificWorker::distanceToTarget(const TBaseState& bState)
+{
+    QVec initialPosition = QVec::vec3(bState.x, 0., bState.z);
+	float distanceOfPath = fabs(path.perpendicularDistanceToPoint(initialPosition));
+	float distance = distanceOfPath - initialDistance;
+	initialDistance = distanceOfPath;
+	return distance;
 }
-
-float SpecificWorker::distanceToLine(const TBaseState &bState){
-  
-  		QVec posicion = QVec::vec3(bState.x, 0., bState.z);
-  		float distanciaActual = fabs(linea.perpendicularDistanceToPoint(posicion));
-  		float diferencia = distanciaActual - distanciaAnterior;
- 		distanciaAnterior = distanciaActual;
-  
- 		return diferencia;
-  
-}
-
+/*float SpecificWorker::obstacleLeft(const TLaserData& tlaser)
+{
+	const int laserpos = 85;
+	float min = tlaser[laserpos].dist;
+	for(int i=laserpos-2; i<laserpos+2;i++)
+	{
+		if (tlaser[i].dist < min)
+			min = tlaser[i].dist;
+	}
+	return min;
+}*/
