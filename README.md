@@ -65,11 +65,60 @@ Move the robot to a target marked with the mouse in the simulation avoiding the 
 
 ## ITERATION 4
 ### Goals
-### Components used
+The robot moves towards the target planning the route to the target once known the environment where it will move.
+### Components required
+1. DifferentialRobot
+2. Laser
+### Subscription required
+1. RCISMousePicker
 ### Edited Files
+1. specificWorker.h
+2. specificWorker.cpp
+3. grid.h
 ### Methods implemented
+| Method        | Returns | Parameters  | Explanation  |
+| :-------------|:-------:|:----------- | :------------|
+| setParams(RoboCompCommonBehavior::ParameterList params)         | boolean   | The parameter d is a float that represents the module of the distance from the robot to the target | Limits the speed of the robot depending on the distance to the target with which it enters the function |
+|compute()        | void   | No parameter | Define the evolution of the robot's speed as a normal distribution |
+| saveToFile()     | void    | No parameter| Transforms the reference systems of the coordinates so that the robot and the marked target are in the same system and moves the robot to the target with an acceleration that follows a normal distribution |
+| readFromFile()     | void    | No parameter | Set the coordinates of the objective from the click done in the simulation |
+| updateOccupiedCells(const RoboCompGenericBase::TBaseState &bState, const RoboCompLaser::TLaserData &ldata)     | void    | myPick is a constant reference to the Pick class that stores the coordinates of the points captured in the simulation when clicking on them | Set the coordinates of the objective from the click done in the simulation |
+| updateVisitedCells(int x, int z)     | void    | No parameter | Set the coordinates of the objective from the click done in the simulation |
+| draw()  | void    | No parameter | Set the coordinates of the objective from the click done in the simulation |
+| setPick(const Pick &myPick)  | void    | myPick is a constant reference to the Pick class that stores the coordinates of the points captured in the simulation when clicking on them | Set the coordinates of the objective from the click done in the simulation |
+
+
+
 ## ITERATION 5
 ### Goals
-### Components used
+The targets are established using  a series of marks on the wall that will be detected by the robot's camera and the robot will move towards this marks.
+### Components required
+1. DifferentialRobot
+2. Laser
+3. GotoPoint
+### Subscription required
+1. RCISMousePicker
+2. AprilTags
+### Implements 
+1. GotoPoint
 ### Edited Files
+1. specificWorker.h
+2. specificWorker.cpp
+### Methods implemented
+| Method        | Returns | Parameters  | Explanation  |
+| :-------------|:-------:|:----------- | :------------|
+| f1(float d)          | float   | The parameter d is a float that represents the module of the distance from the robot to the target | Limits the speed of the robot depending on the distance to the target with which it enters the function |
+| f2(float r, float h, float Vx)          | float   | The parameters r, h and Vx are three floats that represent the angle from the robot to the target and two constants that allow us to calculate the acceleration | Define the evolution of the robot's speed as a normal distribution |
+| Compute()     | void    | No parameter| Transforms the reference systems of the coordinates so that the robot and the marked target are in the same system and moves the robot to the target with an acceleration that follows a normal distribution |
+| SetPick(const Pick &myPick)     | void    | myPick is a constant reference to the Pick class that stores the coordinates of the points captured in the simulation when clicking on them | Set the coordinates of the objective from the click done in the simulation |
+
+
+## Supervisor
+### Goals
+Helps the Controller to check that the places are visited.
+### Components required
+1. GotoPoint
+### Edited Files
+1. specificWorker.h
+2. specificWorker.cpp
 ### Methods implemented
