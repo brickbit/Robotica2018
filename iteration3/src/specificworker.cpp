@@ -195,7 +195,7 @@ void SpecificWorker::bug(const TLaserData &ldata, const TBaseState& bState)
         return;
     }
     
-    	if (initialDistance < 100 and distToLine < 0)
+    	else if (initialDistance < 100 and distToLine < 0)
 	{
 		state = StateRobot::GOTO;
 		qDebug() << "Crossing the line: from BUG to GOTO";
@@ -239,14 +239,4 @@ float SpecificWorker::distanceToTarget(const TBaseState& bState)
 	initialDistance = distanceOfPath;
 	return distance;
 }
-/*float SpecificWorker::obstacleLeft(const TLaserData& tlaser)
-{
-	const int laserpos = 85;
-	float min = tlaser[laserpos].dist;
-	for(int i=laserpos-2; i<laserpos+2;i++)
-	{
-		if (tlaser[i].dist < min)
-			min = tlaser[i].dist;
-	}
-	return min;
-}*/
+
