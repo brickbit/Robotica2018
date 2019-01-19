@@ -116,7 +116,7 @@ void SpecificWorker::compute()
     //    }
 		if(ldata.front().dist > 124.5){
 			
-			speed = (ldata.front().dist - threshold + 50)*10;
+			speed = (ldata.front().dist - threshold + 50)*4;
 			differentialrobot_proxy->setSpeedBase(speed, 0);
 		}else
 		{
