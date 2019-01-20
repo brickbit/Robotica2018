@@ -185,7 +185,10 @@ void SpecificWorker::bug(const TLaserData &ldata, const TBaseState& bState)
     float dist =min;
     float distToLine = distanceToTarget(bState);
     
-    if(inTarget()==true) return;
+    if(inTarget()==true) {
+	state = StateRobot::ENDBUG;	
+	return;
+	}
     
     //para ver si hay obstaculo
     if( ldata.front().dist < threshold )    
@@ -226,6 +229,7 @@ bool SpecificWorker::inTarget()
         if(target.isNewCoord()) target.setActive(false);
         differentialrobot_proxy->setSpeedBase(0, 0); 
         std::cout<<"ESTOY EN EL TARGET "<<std::endl;
+	state = StateRobot::ENDBUG;
         initialized=true;
         return true;					
     }	
