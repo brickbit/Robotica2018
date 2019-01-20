@@ -159,10 +159,13 @@ The targets are established using  a series of marks on the wall that will be de
 ### Methods implemented
 | Method        | Returns | Parameters  | Explanation  |
 | :-------------|:-------:|:----------- | :------------|
-| f1(float d)          | float   | The parameter d is a float that represents the module of the distance from the robot to the target | Limits the speed of the robot depending on the distance to the target with which it enters the function |
-| f2(float r, float h, float Vx)          | float   | The parameters r, h and Vx are three floats that represent the angle from the robot to the target and two constants that allow us to calculate the acceleration | Define the evolution of the robot's speed as a normal distribution |
-| Compute()     | void    | No parameter| Transforms the reference systems of the coordinates so that the robot and the marked target are in the same system and moves the robot to the target with an acceleration that follows a normal distribution |
-| SetPick(const Pick &myPick)     | void    | myPick is a constant reference to the Pick class that stores the coordinates of the points captured in the simulation when clicking on them | Set the coordinates of the objective from the click done in the simulation |
+| setPick(const Pick &myPick) | void   | myPick is a constant reference to the Pick class that stores the coordinates of the points captured in the simulation when clicking on them | Set the coordinates of the objective from the click done in the simulation |
+| go(const string &nodo, const float x, const float y, const float alpha) | void | nodo is a reference to the id of the tag, x is a float containing the coordinates of the x axis, y is a float containing the coordinates of the y axis and alpha is the angle  | go to the point specified with the features given by parameters |
+| turn(const float speed);     | void    | speed is a float containing the turning speed | turn the robot with aa angle and speed specified |
+| atTarget()     | bool | No parameter | returns true if the robot is in the target,false otherwise |
+| stop()    | void | No parameter | Stops the robot |
+| newAprilTagAndPose(const tagsList &tags, const RoboCompGenericBase::TBaseState &bState, const RoboCompJointMotor::MotorStateMap &hState);     | void  | tags is a constant reference to tagsList, bState is a reference to TBaseState from RobocompGenericBase and hState is a reference to MototStateMap from RoboComp JointMotor | Not used
+| newAprilTag(const tagsList &tags)    | void | tags is a constant reference to tagsList containing the distansce and the id of the tag | Catch the features of the tag visualized and transform its coordinates to the coordinates of the simulation |
 
 
 ## Supervisor
@@ -176,10 +179,10 @@ Helps the Controller to check that the places are visited.
 ### Methods implemented
 | Method        | Returns | Parameters  | Explanation  |
 | :-------------|:-------:|:----------- | :------------|
-| setParams(RoboCompCommonBehavior::ParameterList params)          | bool   | The parameter d is a float that represents the module of the distance from the robot to the target | Limits the speed of the robot depending on the distance to the target with which it enters the function |
-| newAprilTagAndPose(const tagsList &tags, const RoboCompGenericBase::TBaseState &bState, const RoboCompJointMotor::MotorStateMap &hState)          | void   | The parameters r, h and Vx are three floats that represent the angle from the robot to the target and two constants that allow us to calculate the acceleration | Define the evolution of the robot's speed as a normal distribution |
-| Compute()     | void    | No parameter| Transforms the reference systems of the coordinates so that the robot and the marked target are in the same system and moves the robot to the target with an acceleration that follows a normal distribution |
-| SetPick(const Pick &myPick)     | void    | myPick is a constant reference to the Pick class that stores the coordinates of the points captured in the simulation when clicking on them | Set the coordinates of the objective from the click done in the simulation |
+| setParams(RoboCompCommonBehavior::ParameterList params)          | bool   | params is  a ParameterList from RobocompCommonBehavior | Define the model of the simulation | 
+| newAprilTagAndPose(const tagsList &tags, const RoboCompGenericBase::TBaseState &bState, const RoboCompJointMotor::MotorStateMap &hState)          | void   | tags is a constant reference to tagsList, bState is a reference to TBaseState from RobocompGenericBase and hState is a reference to MototStateMap from RoboComp JointMotor | Not used
+| newAprilTag(const tagsList &tags)     | void    | tags is a constant reference to tagsList containing the distansce and the id of the tag | Catch the features of the tag visualized and transform its coordinates to the coordinates of the simulation |
+
 
 ### Execution
 1. Open a terminal and write: 
