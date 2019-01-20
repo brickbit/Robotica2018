@@ -15,7 +15,17 @@ Move the robot continuously without colliding with obstacles in a simulation bas
 | Method        | Returns | Parameters  | Explanation  |
 | :-------------|:-------:|:-----------| :------------|
 | Compute()     | void    | No parameter| It orders the distances of the laser beam to the obstacles from least to greatest and if the smallest of them is smaller than an established threshold it rotates and if it does not continue advancing. The direction of rotation will depend on whether the angle of rotation of the smallest measured distance is positive or negative |
+### Execution
+1. Open a terminal and write: 
 
+```cd ~/robocomp/files/innermodel/simpleworld.xml```
+
+2. Open another terminal and execute: 
+
+```cd/[ path_where_the_component_is ]```
+```cmake .```
+```make```
+```bin/controller```
 
 
 ## ITERATION 2
@@ -36,7 +46,21 @@ Move the robot to a target marked with the mouse in the simulation (obstacles ha
 | f2(float r, float h, float Vx)          | float   | The parameters r, h and Vx are three floats that represent the angle from the robot to the target and two constants that allow us to calculate the acceleration | Define the evolution of the robot's speed as a normal distribution |
 | Compute()     | void    | No parameter| Transforms the reference systems of the coordinates so that the robot and the marked target are in the same system and moves the robot to the target with an acceleration that follows a normal distribution |
 | SetPick(const Pick &myPick)     | void    | myPick is a constant reference to the Pick class that stores the coordinates of the points captured in the simulation when clicking on them | Set the coordinates of the objective from the click done in the simulation |
+### Execution
+1. Open a terminal and write: 
 
+```rcnode```
+
+2. Open another terminal and execute: 
+
+```cd ~/robocomp/files/innermodel/simpleworld.xml```
+
+3. Open another terminal and execute: 
+
+```cd/[ path_where_the_component_is ]```
+```cmake .```
+```make```
+```bin/componente1```
 
 ## ITERATION 3
 ### Goals
@@ -59,7 +83,21 @@ Move the robot to a target marked with the mouse in the simulation avoiding the 
 | endbug()      | void    | The bState parameter is a reference to the TBaseState class that stores the position of the robot| Deprecated |
 | inTarget()    | bool    | No parameter| Stops the robot if it is at a distance from the target less than a threshold set returning true in that case and false otherwise |
 | distanceToTarget(const TBaseState& bState)| float    | The bState parameter is a reference to the TBaseState class that stores the position of the robot| Returns the distance from the current position of the robot to the target |
+### Execution
+1. Open a terminal and write: 
 
+```rcnode```
+
+2. Open another terminal and execute: 
+
+```cd ~/robocomp/files/innermodel/simpleworld.xml```
+
+3. Open another terminal and execute: 
+
+```cd/[ path_where_the_component_is ]```
+```cmake .```
+```make```
+```bin/componente1```
 
 
 
@@ -86,7 +124,21 @@ The robot moves towards the target planning the route to the target once known t
 | updateVisitedCells(int x, int z)     | void    | No parameter | Set the coordinates of the objective from the click done in the simulation |
 | draw()  | void    | No parameter | Set the coordinates of the objective from the click done in the simulation |
 | setPick(const Pick &myPick)  | void    | myPick is a constant reference to the Pick class that stores the coordinates of the points captured in the simulation when clicking on them | Set the coordinates of the objective from the click done in the simulation |
+### Execution
+1. Open a terminal and write: 
 
+```rcnode```
+
+2. Open another terminal and execute: 
+
+```cd ~/robocomp/files/innermodel/simpleworld.xml```
+
+3. Open another terminal and execute: 
+
+```cd/[ path_where_the_component_is ]```
+```cmake .```
+```make```
+```bin/chocachoca```
 
 
 ## ITERATION 5
@@ -122,3 +174,36 @@ Helps the Controller to check that the places are visited.
 1. specificWorker.h
 2. specificWorker.cpp
 ### Methods implemented
+| Method        | Returns | Parameters  | Explanation  |
+| :-------------|:-------:|:----------- | :------------|
+| setParams(RoboCompCommonBehavior::ParameterList params)          | bool   | The parameter d is a float that represents the module of the distance from the robot to the target | Limits the speed of the robot depending on the distance to the target with which it enters the function |
+| newAprilTagAndPose(const tagsList &tags, const RoboCompGenericBase::TBaseState &bState, const RoboCompJointMotor::MotorStateMap &hState)          | void   | The parameters r, h and Vx are three floats that represent the angle from the robot to the target and two constants that allow us to calculate the acceleration | Define the evolution of the robot's speed as a normal distribution |
+| Compute()     | void    | No parameter| Transforms the reference systems of the coordinates so that the robot and the marked target are in the same system and moves the robot to the target with an acceleration that follows a normal distribution |
+| SetPick(const Pick &myPick)     | void    | myPick is a constant reference to the Pick class that stores the coordinates of the points captured in the simulation when clicking on them | Set the coordinates of the objective from the click done in the simulation |
+
+### Execution
+1. Open a terminal and write: 
+
+```rcnode```
+
+2. Open another terminal and execute: 
+
+```cd ~/robocomp/files/innermodel/informatica-tercio.xml```
+
+3. Open another terminal and execute ApriltagsComp: 
+
+```cd ~/robocomp/components/robocomp-robolab/components/apriltagsComp```
+```bin/apriltagsComp```
+
+4. Open another terminal and execute the iteration5's component: 
+
+```cd/[ path_where_the_iteration5_component_is ]```
+```cmake .```
+```make```
+```bin/chocachoca```
+5. Open another terminal and execute the supervisor's component: 
+
+```cd/[ path_where_the_supervisor_component_is ]```
+```cmake .```
+```make```
+```bin/supervisor```
