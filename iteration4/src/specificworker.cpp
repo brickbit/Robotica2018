@@ -1,5 +1,5 @@
 /*
- *    Copyright (C)2018 Roberto García Romero África Malpartida Chaparro
+ *    Copyright (C)2018 by YOUR NAME HERE
  *
  *    This file is part of RoboComp
  *
@@ -23,230 +23,256 @@
 */
 SpecificWorker::SpecificWorker(MapPrx& mprx) : GenericWorker(mprx)
 {
-	
+	std::cout << std::boolalpha;   
 }
 
 /**
 * \brief Default destructor
 */
 SpecificWorker::~SpecificWorker()
-{
-
-}
+{}
 
 bool SpecificWorker::setParams(RoboCompCommonBehavior::ParameterList params)
 {
-       
-
 	try
-
-	{	
+	{
 		RoboCompCommonBehavior::Parameter par = params.at("InnerModelPath");
-		innerModel = std::make_shared<InnerModel>(par.value); 
+		innerModel = std::make_shared<InnerModel>(par.value);
 	}
 	catch(std::exception e) { qFatal("Error reading config params"); }
 
+	qDebug() << __FILE__ ;
+	
+	// Scene
+	scene.setSceneRect(-7000, -5200, 14000, 11700);
+	view.setScene(&scene);
+	view.scale(1, -1);
+	view.setParent(scrollArea);
+	//view.setViewport(new QGLWidget(QGLFormat(QGL::SampleBuffers)));
+	view.fitInView(scene.sceneRect(), Qt::KeepAspectRatio );
 
+	grid.initialize( TDim{ tilesize, -7000, 14000, -5200, 11700}, TCell{0, true, false, nullptr, 0.} );
+	
+	for(auto &[key, value] : grid)
+	{
+		auto tile = scene.addRect(-tilesize/2,-tilesize/2, 100,100, QPen(Qt::NoPen));
+		tile->setPos(key.x,key.z);
+		value.rect = tile;
+	}
 
-
-
-
-
-	timer.start(Period);
-
-
+	robot = scene.addRect(QRectF(-200, -200, 400, 400), QPen(), QBrush(Qt::blue));
+	noserobot = new QGraphicsEllipseItem(-50,100, 100,100, robot);
+	noserobot->setBrush(Qt::magenta);
+    
+    //TODO he quitado esto
+	//target = QVec::vec3(0,0,0);
+	
+	//qDebug() << __FILE__ << __FUNCTION__ << "CPP " << __cplusplus;
+	
+	//connect(buttonSave, SIGNAL(clicked()), this, SLOT(saveToFile()));
+	//connect(buttonRead, SIGNAL(clicked()), this, SLOT(readFromFile()));
+	
+	readFromFile();
+	
+	timer.start();
+	
 	return true;
 }
 
-float SpecificWorker::f1(float d)
-{
-  	return (1/(1+exp(-d)-0.5));
-}
-float SpecificWorker::f2(float r,float h, float Vx)
-{
-	
-	float y;
-  
- 	y=(-pow(Vx,2))/log(h);
-  	return exp((-pow(r,2))/y);
-  
-}
-
-
 void SpecificWorker::compute()
 {
-	
-	
-    
-    try
-    {
-        RoboCompLaser::TLaserData ldata = laser_proxy->getLaserData();  //read laser data 
-
-		RoboCompGenericBase::TBaseState bState;
-		differentialrobot_proxy->getBaseState(bState);
+	static RoboCompGenericBase::TBaseState bState;
+ 	try
+ 	{
+ 		differentialrobot_proxy->getBaseState(bState);
 		innerModel->updateTransformValues("base", bState.x, 0, bState.z, 0, bState.alpha, 0);
-        std::sort( ldata.begin(), ldata.end(), [](RoboCompLaser::TData a, RoboCompLaser::TData b){ return     a.dist < b.dist; });  //sort laser data from small to large distances using a lambda function.
-        if ( target.isNewCoord() && initialized==false) 
-        {
-            startPoint = QVec::vec3(bState.x, 0, bState.z);
-            path = QLine2D( startPoint, target.getCoord() );
-            state=StateRobot::GOTO;
-            initialized=true;
-        }
-        
-        switch( state )
-        {
-            case StateRobot::GOTO:
-                letsmove(ldata, bState);
-                break;
-            case StateRobot::STARTBUG:
-                startbug(ldata, bState);
-                break;
-            case StateRobot::BUG:
-                bug(ldata, bState);
-                break;
-            case StateRobot::ENDBUG:
-                endbug(bState);
-                break;
-        }
-		/*
-			*/
+		RoboCompLaser::TLaserData ldata = laser_proxy->getLaserData();
 		
-    
-    }
-    catch(const Ice::Exception &ex)
-    {
-        std::cout << ex << std::endl;
-    }
+		//draw robot
+		robot->setPos(bState.x, bState.z);
+		robot->setRotation(-180.*bState.alpha/M_PI);
+		
+		//updateVisitedCells(bState.x, bState.z);
+		updateOccupiedCells(bState, ldata);
+		
+        if(t.isNewCoord()){
+				target = t.getCoord();
+				path = grid.getOptimalPath(QVec::vec3(bState.x,0,bState.z), t.getCoord());
+				if(!path.empty()){
+					for(auto &p: path)
+						greenPath.push_back(scene.addEllipse(p.x(),p.z(), 100, 100, QPen(Qt::green), QBrush(Qt::green)));
+					currentPoint = path.front();
+					path.pop_front();
+				}
+				t.setActive(false);
+		}
+
+		auto relative =  (innerModel->transform("base", QVec::vec3(currentPoint.x(), 0, currentPoint.z()), "world"));
+		float angle = atan2(relative.x(), relative.z());
+		float mod = relative.norm2();
+
+		
+		if(path.empty())
+		{
+			qDebug() << "Arrived to target";
+			differentialrobot_proxy->setSpeedBase(0,0); 
+		}
+		else if(mod < 200)
+		{
+			qDebug() << "Picking new point";
+			currentPoint = path.front();
+			path.pop_front();
+		}
+		else if(abs(angle) > 0.4)//
+		{
+			differentialrobot_proxy->setSpeedBase(0, angle); 
+		} else {
+			differentialrobot_proxy->setSpeedBase(400, 0.3 * angle); 
+		}
+		/*if(targetReady)
+		{
+			if(planReady)
+			{
+				if(path.empty())
+				{
+					qDebug() << "Arrived to target";
+					targetReady = false; 
+				}
+				else
+						if((QVec::vec2(bState.x, bState.z) - currentPoint).norm2() < 50)
+						{
+							currentPoint = path.front();
+							path.pop_front();
+						}
+						else
+						{
+							//GOTO Point
+						}
+			}
+			else
+			{
+				qDebug() << bState.x << bState.z << target.x() << target.z() ;
+				path = grid.getOptimalPath(QVec::vec3(bState.x,0,bState.z), target);
+				for(auto &p: path)
+					greenPath.push_back(scene.addEllipse(p.x(),p.z(), 100, 100, QPen(Qt::green), QBrush(Qt::green)));
+				planReady = true;
+			}
+		}*/
+	}
+ 	catch(const Ice::Exception &e)
+	{	std::cout  << e << std::endl; }
+	
+	//Resize world widget if necessary, and render the world
+	if (view.size() != scrollArea->size())
+			view.setFixedSize(scrollArea->width(), scrollArea->height());
+	draw();
 	
 }
+
+void SpecificWorker::saveToFile()
+{
+	grid.saveToFile(fileName);
+}
+
+void SpecificWorker::readFromFile()
+{
+	std::ifstream myfile;
+	myfile.open(fileName, std::ifstream::in);
+	
+	if(!myfile.fail())
+	{
+		//grid.initialize( TDim{ tilesize, -2500, 2500, -2500, 2500}, TCell{true, false, nullptr} );
+		for( auto &[k,v] : grid)
+			delete v.rect;
+		grid.clear();
+		Grid<TCell>::Key key; TCell value;
+		myfile >> key >> value;
+		int k=0;
+		while(!myfile.eof()) 
+		{
+			auto tile = scene.addRect(-tilesize/2,-tilesize/2, 100,100, QPen(Qt::NoPen));;
+			tile->setPos(key.x,key.z);
+			value.rect = tile;
+			value.id = k++;
+			value.cost = 1;
+			grid.insert<TCell>(key,value);
+			myfile >> key >> value;
+		}
+		myfile.close();	
+		robot->setZValue(1);
+		std::cout << grid.size() << " elements read to grid " << fileName << std::endl;
+	}
+	else
+		throw std::runtime_error("Cannot open file");
+}
+
+/*void SpecificWorker::checkTransform(const RoboCompGenericBase::TBaseState &bState)
+{
+	auto r = innerModel->transform("base", target, "world");		// using InnerModel
+	
+	Rot2D rot(bState.alpha);																		// create a 2D clockwise rotation matrix
+	QVec t = QVec::vec2(bState.x, bState.z);									  // create a 2D vector for robot translation
+	QVec t2 = QVec::vec2(target.x(), target.z());								// create a 2D vector from the 3D target
+	QVec q = rot.transpose() * ( t2 - t);												// multiply R_t * (y - T)
+	qDebug() << target << r << q;
+}*/
+
+void SpecificWorker::updateOccupiedCells(const RoboCompGenericBase::TBaseState &bState, const RoboCompLaser::TLaserData &ldata)
+{
+	auto *n = innerModel->getNode<InnerModelLaser>("laser");
+	for(auto l: ldata)
+	{
+		auto r = n->laserTo("world", l.dist, l.angle);	// r is in world reference system
+		// we set the cell corresponding to r as occupied 
+		auto [valid, cell] = grid.getCell(r.x(), r.z()); 
+		if(valid)
+			cell.free = false;
+	}
+}
+
+void SpecificWorker::updateVisitedCells(int x, int z)
+{
+	static unsigned int cont = 0;
+	auto [valid, cell] = grid.getCell(x, z); 
+	if(valid)
+	{
+		auto &occupied = cell.visited;
+		if(occupied)
+		{
+			occupied = false;
+			cont++;
+		}
+		float percentOccupacy = 100. * cont / grid.size();
+	}
+}
+
+void SpecificWorker::draw()
+{
+	for(auto &[key, value] : grid)
+	{
+// 		if(value.visited == false)
+// 			value.rect->setBrush(Qt::lightGray);
+		if(value.free == false)
+			value.rect->setBrush(Qt::darkRed);
+	}
+	view.show();
+}
+
+/////////////// PATH PLANNING /////7
+
+
+
+
+/////////////////////////////////////////////////////////77
+/////////
+//////////////////////////////////////////////////////////
 
 void SpecificWorker::setPick(const Pick &myPick)
 {
 	qDebug() << "PRESSED ON: X: " << myPick.x << " Z: " << myPick.z;
-	target.setCoord(myPick.x,myPick.z);
-
-	
+  	t.setCoord(myPick.x, myPick.z);
+	for(auto gp: greenPath)
+		delete gp;
+	greenPath.clear();
+	path.clear();
 }
-void SpecificWorker::letsmove( const TLaserData &ldata, const TBaseState& bState )
-{
-    float angle;
-    if(target.isNewCoord())
-    {
-        //para ver si hay obstaculo
-        if( ldata.front().dist < threshold )    
-        {
-            std::cout<<"sale hacia STARTBUG"<<std::endl;
-            state = StateRobot::STARTBUG;
-            return;
-        }
-        auto tw = target.getCoord();
-        Rot2D rot(bState.alpha);
-        auto y = QVec::vec2(tw[0], tw[2]);
-        auto T = QVec::vec2(bState.x, bState.z);
-        auto r = rot.invert()*(y-T);
-
-        angle = atan2(r.x(),r.y());
-        module = r.norm2();
-        //para parar
-        if(inTarget()==true) return;
-
-        
-        differentialrobot_proxy->setSpeedBase( 400 * f1(module)*f2(angle,0.9,0.1),angle);
-    }
-    std::cout<<" ESTADO GOTO "<<std::endl;
-}
-void SpecificWorker::startbug(const TLaserData &ldata, const TBaseState& bState)
-{
-        QVec initialPosition = QVec::vec3(bState.x, 0., bState.z);
-        initialDistance = fabs(path.perpendicularDistanceToPoint(initialPosition));
-        if(ldata.front().dist > threshold )    
-        {
-            state = StateRobot::BUG;
-            differentialrobot_proxy->setSpeedBase(0, 0);
-            return;
-        }
-        differentialrobot_proxy->setSpeedBase(0, 0.5);
-
-    std::cout<<" ESTADO STARTBUG "<<std::endl;
-}
-void SpecificWorker::bug(const TLaserData &ldata, const TBaseState& bState)
-{
-    std::cout<<" ESTADO BUG "<<std::endl;
-    const float alpha = log ( 0.1 ) /log ( 0.3 );
-    //Calcular la distancia al objetivo
-	const int laserpos = 85;
-	float min = ldata[laserpos].dist;
-	for(int i=laserpos-2; i<laserpos+2;i++)
-	{
-		if (ldata[i].dist < min)
-			min = ldata[i].dist;
-	}
-    float dist =min;
-    float distToLine = distanceToTarget(bState);
-    
-    if(inTarget()==true) return;
-    
-    //para ver si hay obstaculo
-    if( ldata.front().dist < threshold )    
-    {
-        std::cout<<"sale hacia STARTBUG"<<std::endl;
-        state = StateRobot::STARTBUG;
-        return;
-    }
-    
-    	else if (initialDistance < 100 and distToLine < 0)
-	{
-		state = StateRobot::GOTO;
-		qDebug() << "Crossing the line: from BUG to GOTO";
-		return;
-	}
-    float k=0.1;  // pendiente de la sigmoide
-	float angle =  -((1./(1. + exp(-k*(dist - 450.))))-1./2.);		
-	float v = 350 * exp ( - ( fabs ( angle ) * alpha ) ); 		
-	qDebug() << angle << v;
-	differentialrobot_proxy->setSpeedBase ( v ,angle );
-    
-}
-void SpecificWorker::endbug(const TBaseState& bState)
-{
-    if ( target.isNewCoord()) 
-    {
-        startPoint = QVec::vec3(bState.x, 0, bState.z);
-        path = QLine2D( startPoint, target.getCoord() );
-        state=StateRobot::GOTO;
-    }
-    std::cout<<" ESTADO ENDBUG "<<std::endl;
-    //letsmove(ldata);
-}
-bool SpecificWorker::inTarget()
-{
-    if(module < 50)
-    {
-        if(target.isNewCoord()) target.setActive(false);
-        differentialrobot_proxy->setSpeedBase(0, 0); 
-        std::cout<<"ESTOY EN EL TARGET "<<std::endl;
-        initialized=true;
-        return true;					
-    }	
-    return false;
-}
-float SpecificWorker::distanceToTarget(const TBaseState& bState)
-{
-    QVec initialPosition = QVec::vec3(bState.x, 0., bState.z);
-	float distanceOfPath = fabs(path.perpendicularDistanceToPoint(initialPosition));
-	float distance = distanceOfPath - initialDistance;
-	initialDistance = distanceOfPath;
-	return distance;
-}
-/*float SpecificWorker::obstacleLeft(const TLaserData& tlaser)
-{
-	const int laserpos = 85;
-	float min = tlaser[laserpos].dist;
-	for(int i=laserpos-2; i<laserpos+2;i++)
-	{
-		if (tlaser[i].dist < min)
-			min = tlaser[i].dist;
-	}
-	return min;
-}*/
